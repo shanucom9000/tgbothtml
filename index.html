@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Earn Points</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4; }
+        #status { font-weight: bold; color: #0088cc; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h3>Watch for 30 seconds to earn 10 points!</h3>
+    <div id="player"></div>
+    <div id="status">Waiting for you to press play...</div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbww7K-cnnvgJ4lLklQE7VK1i1zjB02fs7GM7_yKM3smgq56E9fpecJD3yXGVJlMlA0/exec";
+        let player;
+        let timer;
+        let secondsWatched = 0;
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '360',
+                width: '100%',
+                videoId: 'https://youtu.be/N0W_6SqVtfc?si=p2d0etR8I7r54Yfo', // e.g., dQw4w9WgXcQ
+                events: { 'onStateChange': onPlayerStateChange }
+            });
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PLAYING) {
+                document.getElementById('status').innerText = "Verifying watch time...";
+                timer = setInterval(() => {
+                    secondsWatched++;
+                    document.getElementById('status').innerText = `Keep watching: ${secondsWatched}/30s`;
+                    if (secondsWatched >= 30) {
+                        clearInterval(timer);
+                        sendPoints();
+                    }
+                }, 1000);
+            } else {
+                clearInterval(timer);
+                if (secondsWatched < 30) {
+                    document.getElementById('status').innerText = "Video paused. Resume to earn points.";
+                }
+            }
+        }
+
+        function sendPoints() {
+            document.getElementById('status').innerText = "Success! Sending points...";
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({
+                    userId: tg.initDataUnsafe.user.id
+                })
+            }).then(() => {
+                setTimeout(() => { tg.close(); }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
