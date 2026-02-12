@@ -1,47 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earn Points</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
     <style>
-        #claim-btn { display: none; padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; }
+        body { font-family: sans-serif; text-align: center; padding: 50px 20px; background: #f4f4f4; }
+        #player { width: 100%; max-width: 500px; border-radius: 10px; margin-bottom: 20px; }
+        #claim-btn { display: none; padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; }
+        #status { font-weight: bold; color: #0088cc; }
     </style>
 </head>
-<body style="text-align:center; padding-top:50px; font-family:sans-serif;">
+<body>
     <div id="player"></div>
-    <h2 id="status">Watch 30s to unlock points</h2>
-    
+    <h2 id="status">Watch 30 seconds to earn points</h2>
     <button id="claim-btn" onclick="claimPoints()">✅ Claim 10 Points</button>
 
     <script>
         const tg = window.Telegram.WebApp;
+        const BOT_USERNAME = "YOUR_BOT_USERNAME"; // Replace with your bot's username (without @)
         let seconds = 0;
+        let timer;
 
         function onYouTubeIframeAPIReady() {
             new YT.Player('player', {
                 height: '360', width: '100%', videoId: 'N0W_6SqVtfc',
-                events: { 'onStateChange': (e) => {
-                    if (e.data == 1) { // 1 = Playing
-                        let timer = setInterval(() => {
-                            seconds++;
-                            document.getElementById('status').innerText = `Progress: ${seconds}/30s`;
-                            if (seconds >= 30) {
-                                clearInterval(timer);
-                                document.getElementById('status').style.display = 'none';
-                                document.getElementById('claim-btn').style.display = 'inline-block';
-                            }
-                        }, 1000);
+                events: {
+                    'onStateChange': (event) => {
+                        if (event.data == YT.PlayerState.PLAYING && !timer) {
+                            timer = setInterval(() => {
+                                seconds++;
+                                document.getElementById('status').innerText = `Progress: ${seconds}/30s`;
+                                if (seconds >= 30) {
+                                    clearInterval(timer);
+                                    document.getElementById('status').style.display = 'none';
+                                    document.getElementById('claim-btn').style.display = 'inline-block';
+                                }
+                            }, 1000);
+                        } else if (event.data != YT.PlayerState.PLAYING) {
+                            clearInterval(timer);
+                            timer = null;
+                        }
                     }
-                }}
+                }
             });
         }
 
         function claimPoints() {
-            // Generate a random token for this session
-            const randomToken = Math.floor(Math.random() * 1000000) + "777";
-            // Redirect user back to the bot with the token
-            const botUsername = "YOUR_BOT_USERNAME"; // e.g., MyPointsBot
-            window.location.href = `https://t.me/${botUsername}?start=claim_${randomToken}`;
+            const token = Math.floor(Math.random() * 100000) + "777";
+            // Redirects to: https://t.me/YourBot?start=claim_12345777
+            window.location.href = `https://t.me/${Gitrepo_extbot}?start=claim_${token}`;
         }
     </script>
 </body>
