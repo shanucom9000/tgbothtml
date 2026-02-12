@@ -1,69 +1,76 @@
-var SHEET_ID = "1XqW6w9QZErNl08hNKTferQzOlU73U7kTf_2FinPkyAY";
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earn Points</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4; }
+        #player { width: 100%; max-width: 500px; border-radius: 10px; }
+        #status { font-weight: bold; color: #0088cc; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h3>Watch for 30 seconds to earn 10 points!</h3>
+    <div id="player"></div>
+    <div id="status">Loading video...</div>
 
-// Handles GET requests (Balance, Spend, Register)
-function doGet(e) {
-  var userId = e.parameter.userId.toString();
-  var username = e.parameter.username || "User";
-  var action = e.parameter.action;
-  
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheets()[0];
-  var data = sheet.getDataRange().getValues();
-  var rowIndex = -1;
+    <script>
+        const tg = window.Telegram.WebApp;
+        // This is your Google Script URL
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbww7K-cnnvgJ4lLklQE7VK1i1zjB02fs7GM7_yKM3smgq56E9fpecJD3yXGVJlMlA0/exec";
+        
+        let player;
+        let timer;
+        let secondsWatched = 0;
 
-  // Find user row
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][0].toString() === userId) {
-      rowIndex = i + 1;
-      break;
-    }
-  }
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '360',
+                width: '100%',
+                videoId: 'N0W_6SqVtfc', 
+                playerVars: { 'playsinline': 1, 'origin': window.location.origin },
+                events: { 
+                    'onReady': () => { document.getElementById('status').innerText = "Press Play to start!"; },
+                    'onStateChange': onPlayerStateChange 
+                }
+            });
+        }
 
-  // 1. REGISTER ON START
-  if (action === "start") {
-    if (rowIndex === -1) {
-      sheet.appendRow([userId, username, 0, 0, 0]); // ID, Name, Earned, Spent, Balance
-      return ContentService.createTextOutput("Registered");
-    }
-    return ContentService.createTextOutput("Welcome back");
-  }
+        function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PLAYING) {
+                if (!timer) {
+                    timer = setInterval(() => {
+                        secondsWatched++;
+                        document.getElementById('status').innerText = `Progress: ${secondsWatched}/30s`;
+                        if (secondsWatched >= 30) {
+                            clearInterval(timer);
+                            sendPoints();
+                        }
+                    }, 1000);
+                }
+            } else {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
 
-  // 2. GET STATS
-  if (action === "get_stats") {
-    if (rowIndex === -1) return ContentService.createTextOutput("0,0,0");
-    var row = data[rowIndex - 1];
-    // Returns "Earned,Spent,Balance"
-    return ContentService.createTextOutput(row[2] + "," + row[3] + "," + row[4]);
-  }
+        function sendPoints() {
+            document.getElementById('status').innerText = "✅ Done! Adding points...";
+            const params = new URLSearchParams();
+            params.append('userId', tg.initDataUnsafe.user.id);
 
-  // 3. SPEND POINTS
-  if (action === "spend") {
-    if (rowIndex !== -1) {
-      var currentEarned = Number(data[rowIndex - 1][2]);
-      sheet.getRange(rowIndex, 4).setValue(currentEarned); // Total Spent = Total Earned
-      sheet.getRange(rowIndex, 5).setValue(0); // Balance = 0
-      return ContentService.createTextOutput("Spent");
-    }
-  }
-}
-
-// Handles POST requests (Adding points from the Web App)
-function doPost(e) {
-  var userId = e.parameter.userId.toString();
-  var ss = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheets()[0];
-  var data = sheet.getDataRange().getValues();
-
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][0].toString() === userId) {
-      var currentEarned = Number(data[i][2]);
-      var currentSpent = Number(data[i][3]);
-      var newEarned = currentEarned + 10;
-      
-      sheet.getRange(i + 1, 3).setValue(newEarned); // Update Earned
-      sheet.getRange(i + 1, 5).setValue(newEarned - currentSpent); // Update Balance
-      break;
-    }
-  }
-  return ContentService.createTextOutput("Success");
-}
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: params
+            }).then(() => {
+                document.getElementById('status').innerText = "Points added! Closing...";
+                setTimeout(() => { tg.close(); }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
