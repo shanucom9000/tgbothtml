@@ -1,55 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earn Points</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f4; }
-        #player { width: 100%; max-width: 500px; border-radius: 10px; }
-        #status { font-weight: bold; color: #0088cc; margin-top: 15px; }
+        #claim-btn { display: none; padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; }
     </style>
 </head>
-<body>
-    <h3>Watch for 30 seconds to earn 10 points!</h3>
+<body style="text-align:center; padding-top:50px; font-family:sans-serif;">
     <div id="player"></div>
-    <div id="status">Loading video...</div>
+    <h2 id="status">Watch 30s to unlock points</h2>
+    
+    <button id="claim-btn" onclick="claimPoints()">✅ Claim 10 Points</button>
 
     <script>
         const tg = window.Telegram.WebApp;
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbww7K-cnnvgJ4lLklQE7VK1i1zjB02fs7GM7_yKM3smgq56E9fpecJD3yXGVJlMlA0/exec";
-        let player, timer, seconds = 0;
+        let seconds = 0;
 
         function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
+            new YT.Player('player', {
                 height: '360', width: '100%', videoId: 'N0W_6SqVtfc',
-                playerVars: { 'playsinline': 1, 'origin': window.location.origin },
-                events: { 
-                    'onReady': () => { document.getElementById('status').innerText = "Press Play to start!"; },
-                    'onStateChange': (e) => {
-                        if (e.data == YT.PlayerState.PLAYING) {
-                            if (!timer) timer = setInterval(() => {
-                                seconds++;
-                                document.getElementById('status').innerText = `Progress: ${seconds}/30s`;
-                                if (seconds >= 30) { clearInterval(timer); addPoints(); }
-                            }, 1000);
-                        } else { clearInterval(timer); timer = null; }
+                events: { 'onStateChange': (e) => {
+                    if (e.data == 1) { // 1 = Playing
+                        let timer = setInterval(() => {
+                            seconds++;
+                            document.getElementById('status').innerText = `Progress: ${seconds}/30s`;
+                            if (seconds >= 30) {
+                                clearInterval(timer);
+                                document.getElementById('status').style.display = 'none';
+                                document.getElementById('claim-btn').style.display = 'inline-block';
+                            }
+                        }, 1000);
                     }
-                }
+                }}
             });
         }
 
-        function addPoints() {
-            document.getElementById('status').innerText = "✅ Adding points...";
-            const params = new URLSearchParams();
-            params.append('userId', tg.initDataUnsafe.user.id);
-            fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: params })
-            .then(() => { 
-                document.getElementById('status').innerText = "Points Added! Closing...";
-                setTimeout(() => tg.close(), 2000); 
-            });
+        function claimPoints() {
+            // Generate a random token for this session
+            const randomToken = Math.floor(Math.random() * 1000000) + "777";
+            // Redirect user back to the bot with the token
+            const botUsername = "YOUR_BOT_USERNAME"; // e.g., MyPointsBot
+            window.location.href = `https://t.me/${botUsername}?start=claim_${randomToken}`;
         }
     </script>
 </body>
