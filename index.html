@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Watch & Earn</title>
 
+<!-- Telegram WebApp -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
@@ -24,6 +25,7 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  transition: 0.3s;
 }
 
 .light {
@@ -39,6 +41,7 @@ body {
   width: 92%;
   max-width: 420px;
   backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
 .progress-bar {
@@ -56,10 +59,29 @@ body {
   transition: width 1s linear;
 }
 
+.timer {
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.status {
+  margin-top: 12px;
+}
+
 .reward {
   font-size: 22px;
   margin-top: 10px;
   animation: pop 0.6s ease forwards;
+}
+
+button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 10px;
+  background: #00ffcc;
 }
 
 @keyframes pop {
@@ -75,7 +97,7 @@ body {
 <div class="container">
   <h2>🎥 Watch & Earn</h2>
 
-  <!-- 💰 Balance display -->
+  <!-- 💰 Balance -->
   <h3 id="balance">💰 Balance: Loading...</h3>
 
   <p>Watch for <b>30 seconds</b> to earn <b>10 points</b></p>
@@ -85,13 +107,13 @@ body {
     frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
   </iframe>
 
-  <h3 id="timer">⏳ 30</h3>
+  <div class="timer" id="timer">⏳ 30</div>
 
   <div class="progress-bar">
     <div class="progress" id="progress"></div>
   </div>
 
-  <p id="status">Watching...</p>
+  <div class="status" id="status">Watching...</div>
 
   <button onclick="toggleTheme()">Toggle Dark/Light</button>
 
@@ -99,12 +121,16 @@ body {
 </div>
 
 <script>
+// Telegram WebApp init
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+// Get Telegram user ID
 const uid = tg.initDataUnsafe?.user?.id;
+
 if (!uid) {
-  document.getElementById("status").innerText = "Open inside Telegram";
+  document.getElementById("status").innerText =
+    "⚠️ Please open inside Telegram.";
   throw new Error("No UID");
 }
 
@@ -116,13 +142,19 @@ let rewarded = false;
 const progress = document.getElementById("progress");
 const timerText = document.getElementById("timer");
 const rewardBox = document.getElementById("reward");
+const status = document.getElementById("status");
 
 // 🔄 Load balance
 async function loadBalance() {
-  const res = await fetch(`${API}/balance/${uid}`);
-  const data = await res.json();
-  document.getElementById("balance").innerText =
-    `💰 Balance: ${data.balance} pts`;
+  try {
+    const res = await fetch(`${API}/balance/${uid}`);
+    const data = await res.json();
+    document.getElementById("balance").innerText =
+      `💰 Balance: ${data.balance} pts`;
+  } catch {
+    document.getElementById("balance").innerText =
+      "⚠️ Unable to load balance";
+  }
 }
 
 loadBalance();
@@ -137,22 +169,21 @@ const timer = setInterval(async () => {
     rewarded = true;
     clearInterval(timer);
 
-    document.getElementById("status").innerText = "Adding points...";
+    status.innerText = "Adding points...";
 
-    // Call API
-    await fetch(`${API}/verify`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ uid: String(uid) })
-    });
+    try {
+      await fetch(`${API}/verify`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ uid: String(uid) })
+      });
 
-    // 🎉 Animation
-    rewardBox.innerHTML = '<div class="reward">🎉 +10 Points</div>';
-
-    document.getElementById("status").innerText = "✅ Points added!";
-
-    // 🔄 Refresh balance
-    loadBalance();
+      rewardBox.innerHTML = '<div class="reward">🎉 +10 Points</div>';
+      status.innerText = "✅ Points added!";
+      loadBalance();
+    } catch {
+      status.innerText = "⚠️ Error adding points.";
+    }
   }
 }, 1000);
 
