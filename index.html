@@ -1,58 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earn Points</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px 20px; background: #f4f4f4; }
-        #player { width: 100%; max-width: 500px; border-radius: 10px; margin-bottom: 20px; }
-        #claim-btn { display: none; padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; font-weight: bold; }
-        #status { font-weight: bold; color: #0088cc; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watch & Earn</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background: rgba(255,255,255,0.1);
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  width: 90%;
+  max-width: 420px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+h2 {
+  margin-bottom: 10px;
+}
+
+.video-box {
+  margin: 15px 0;
+}
+
+.progress-bar {
+  width: 100%;
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+.progress {
+  height: 12px;
+  width: 0%;
+  background: #00ffcc;
+  transition: width 1s linear;
+}
+
+.status {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.success {
+  color: #00ffcc;
+  font-weight: bold;
+}
+</style>
 </head>
+
 <body>
-    <div id="player"></div>
-    <h2 id="status">Watch 30 seconds to earn points</h2>
-    <button id="claim-btn" onclick="claimPoints()">✅ Claim 10 Points</button>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        const BOT_USERNAME = "YOUR_BOT_USERNAME"; // Replace with your bot's username (without @)
-        let seconds = 0;
-        let timer;
+<div class="container">
+  <h2>🎥 Watch & Earn</h2>
+  <p>Watch for <b>30 seconds</b> to earn <b>10 points</b></p>
 
-        function onYouTubeIframeAPIReady() {
-            new YT.Player('player', {
-                height: '360', width: '100%', videoId: 'N0W_6SqVtfc',
-                events: {
-                    'onStateChange': (event) => {
-                        if (event.data == YT.PlayerState.PLAYING && !timer) {
-                            timer = setInterval(() => {
-                                seconds++;
-                                document.getElementById('status').innerText = `Progress: ${seconds}/30s`;
-                                if (seconds >= 30) {
-                                    clearInterval(timer);
-                                    document.getElementById('status').style.display = 'none';
-                                    document.getElementById('claim-btn').style.display = 'inline-block';
-                                }
-                            }, 1000);
-                        } else if (event.data != YT.PlayerState.PLAYING) {
-                            clearInterval(timer);
-                            timer = null;
-                        }
-                    }
-                }
-            });
-        }
+  <div class="video-box">
+    <iframe width="100%" height="220"
+      src="https://www.youtube.com/embed/N0W_6SqVtfc?autoplay=1"
+      frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
+    </iframe>
+  </div>
 
-        function claimPoints() {
-            const token = Math.floor(Math.random() * 100000) + "777";
-            // Redirects to: https://t.me/YourBot?start=claim_12345777
-            window.location.href = `https://t.me/${Gitrepo_extbot}?start=claim_${token}`;
-        }
-    </script>
+  <div class="progress-bar">
+    <div class="progress" id="progress"></div>
+  </div>
+
+  <div class="status" id="status">⏳ Watching...</div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const uid = params.get("uid");
+
+let seconds = 0;
+const total = 30;
+const progress = document.getElementById("progress");
+const status = document.getElementById("status");
+
+const timer = setInterval(() => {
+  seconds++;
+  progress.style.width = (seconds / total) * 100 + "%";
+
+  if (seconds >= total) {
+    clearInterval(timer);
+    status.innerHTML = "✅ Verified! Points added.";
+    status.classList.add("success");
+
+    fetch("https://server-verify-production-80b2.up.railway.app/verify", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({uid: uid})
+    });
+  }
+}, 1000);
+</script>
+
 </body>
 </html>
