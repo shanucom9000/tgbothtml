@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Watch & Earn</title>
 
-<!-- ✅ Telegram WebApp Script -->
+<!-- Telegram WebApp -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
@@ -121,22 +121,23 @@ button {
 </div>
 
 <script>
-// ✅ Initialize Telegram WebApp
+// ✅ Telegram WebApp Init
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// ✅ Get Telegram user ID securely
-const user = tg.initDataUnsafe?.user;
-const uid = user ? user.id : null;
+// ✅ Get Telegram User ID
+const uid = tg.initDataUnsafe?.user?.id;
 
 if (!uid) {
-  document.getElementById("status").innerText = "⚠️ Unable to detect Telegram user.";
+  document.getElementById("status").innerText =
+    "⚠️ Please open this inside Telegram.";
   throw new Error("No Telegram UID");
 }
 
-// 🔒 Anti-cheat: prevent repeat reward in same browser
+// 🔒 Anti-cheat (basic)
 if (localStorage.getItem("rewarded_" + uid)) {
-  document.getElementById("status").innerText = "⚠️ Reward already claimed.";
+  document.getElementById("status").innerText =
+    "⚠️ Reward already claimed today.";
   throw new Error("Already rewarded");
 }
 
@@ -146,6 +147,7 @@ const status = document.getElementById("status");
 const timerText = document.getElementById("timer");
 const rewardBox = document.getElementById("reward");
 
+// ⏳ Countdown Timer
 const timer = setInterval(() => {
   seconds--;
   timerText.innerText = "⏳ " + seconds;
@@ -158,19 +160,19 @@ const timer = setInterval(() => {
     // 🎉 Reward animation
     rewardBox.innerHTML = '<div class="reward">🎉 +10 Points</div>';
 
-    // mark rewarded locally
+    // save local anti-cheat
     localStorage.setItem("rewarded_" + uid, "true");
 
-    // 📡 Call your API
+    // 📡 Call API to add points
     fetch("https://server-verify-production-80b2.up.railway.app/verify", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ uid: uid })
+      body: JSON.stringify({ uid: String(uid) })
     });
   }
 }, 1000);
 
-// 🌗 Theme toggle
+// 🌗 Dark/Light Theme
 function toggleTheme() {
   document.body.classList.toggle("light");
 }
