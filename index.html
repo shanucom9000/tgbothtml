@@ -1,149 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Watch & Earn</title>
-
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.container {
-  background: rgba(255,255,255,0.1);
-  padding: 20px;
-  border-radius: 15px;
-  text-align: center;
-  width: 92%;
-  max-width: 420px;
-}
-
-.progress-bar {
-  width: 100%;
-  background: rgba(255,255,255,0.2);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-top: 15px;
-}
-
-.progress {
-  height: 12px;
-  width: 0%;
-  background: #00ffcc;
-  transition: width 0.5s linear;
-}
-
-.reward {
-  font-size: 22px;
-  margin-top: 10px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earn Points - Watch Video</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #e67e22;
+        }
+        .container { padding: 20px; }
+    </style>
 </head>
-
 <body>
 
-<div class="container">
-  <h2>🎥 Watch & Earn</h2>
-  <p>Watch 30 seconds to earn 10 points</p>
+    <div class="container">
+        <h3>Watch for 30 seconds to earn 10 points</h3>
+        <div id="player"></div>
+        <div id="status">Waiting for play...</div>
+    </div>
 
-  <!-- YouTube Player -->
-  <div id="player"></div>
+    <script>
+        // --- 1. FIREBASE CONFIGURATION ---
+        // Replace these values with your Firebase Web Config from the Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyD6cAYeQYM9wRpEdmwdJy09NOgo6t7_pes", 
+            authDomain: "verify-53031.firebaseapp.com",
+            databaseURL: "https://verify-53031-default-rtdb.firebaseio.com", // Verify this URL in your console
+            projectId: "verify-53031",
+            storageBucket: "verify-53031.appspot.com",
+        };
 
-  <h3 id="timer">⏳ Waiting for video...</h3>
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-  <div class="progress-bar">
-    <div class="progress" id="progress"></div>
-  </div>
+        // --- 2. TELEGRAM WEB APP SETUP ---
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Open to full height
+        const userId = tg.initDataUnsafe?.user?.id;
 
-  <p id="status">Press play to start</p>
-  <div id="reward"></div>
-</div>
+        // --- 3. YOUTUBE PLAYER LOGIC ---
+        let player;
+        let timerStarted = false;
+        let timeLeft = 30;
 
-<!-- YouTube API -->
-<script src="https://www.youtube.com/iframe_api"></script>
+        // Load YT API
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-<script>
-// 🔹 Get UID from URL
-const params = new URLSearchParams(window.location.search);
-const uid = params.get("uid");
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '240',
+                width: '100%',
+                videoId: 'N0W_6SqVtfc', // Replace with your video ID
+                playerVars: { 'playsinline': 1 },
+                events: { 'onStateChange': onPlayerStateChange }
+            });
+        }
 
-const API = "https://server-verify-production-80b2.up.railway.app";
+        function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PLAYING && !timerStarted) {
+                timerStarted = true;
+                startCountdown();
+            }
+        }
 
-let player;
-let seconds = 0;
-let timer = null;
-let rewarded = false;
+        function startCountdown() {
+            const statusDiv = document.getElementById('status');
+            const interval = setInterval(() => {
+                timeLeft--;
+                statusDiv.innerText = `Keep watching: ${timeLeft}s remaining`;
 
-// Create player
-function onYouTubeIframeAPIReady() {
-  player = new YT.Player('player', {
-    height: '220',
-    width: '100%',
-    videoId: 'N0W_6SqVtfc',
-    events: {
-      'onStateChange': onPlayerStateChange
-    }
-  });
-}
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    addPoints();
+                }
+            }, 1000);
+        }
 
-// Detect play/pause
-function onPlayerStateChange(event) {
-  if (event.data === YT.PlayerState.PLAYING && !rewarded) {
-    startTimer();
-  } else if (event.data === YT.PlayerState.PAUSED) {
-    stopTimer();
-  }
-}
+        // --- 4. REWARD LOGIC ---
+        function addPoints() {
+            if (!userId) {
+                alert("Error: User ID not found from Telegram.");
+                return;
+            }
 
-// Start timer when video plays
-function startTimer() {
-  if (timer) return;
-
-  document.getElementById("status").innerText = "Watching...";
-  timer = setInterval(async () => {
-    seconds++;
-
-    document.getElementById("timer").innerText = "⏳ " + seconds + " / 30";
-    document.getElementById("progress").style.width = (seconds / 30 * 100) + "%";
-
-    if (seconds >= 30 && !rewarded) {
-      rewarded = true;
-      clearInterval(timer);
-
-      document.getElementById("status").innerText = "Adding points...";
-
-      try {
-        await fetch(`${API}/verify`, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ uid: String(uid) })
-        });
-
-        document.getElementById("reward").innerHTML =
-          '<div class="reward">🎉 +10 Points</div>';
-
-        document.getElementById("status").innerText = "✅ Points added!";
-      } catch {
-        document.getElementById("status").innerText = "⚠️ Error adding points";
-      }
-    }
-  }, 1000);
-}
-
-// Stop timer if paused
-function stopTimer() {
-  clearInterval(timer);
-  timer = null;
-  document.getElementById("status").innerText = "Paused";
-}
-</script>
-
+            const userRef = database.ref('users/' + userId);
+            
+            // Transaction safely increments the balance
+            userRef.transaction((user) => {
+                if (user) {
+                    user.balance = (user.balance || 0) + 10;
+                }
+                return user;
+            }, (error, committed) => {
+                if (committed) {
+                    document.getElementById('status').innerText = "✅ 10 Points Added!";
+                    document.getElementById('status').style.color = "#2ecc71";
+                    
+                    // Close the web app after a short delay
+                    setTimeout(() => {
+                        tg.close();
+                    }, 2000);
+                } else {
+                    console.error("Transaction failed:", error);
+                }
+            });
+        }
+    </script>
 </body>
 </html>
