@@ -1,82 +1,149 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #fff; }
-        #player { border-radius: 15px; overflow: hidden; margin-top: 10px; }
-        #status { margin-top: 20px; font-weight: bold; font-size: 1.2em; color: #f39c12; }
-    </style>
+<meta charset="UTF-8">
+<title>Watch & Earn</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background: rgba(255,255,255,0.1);
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  width: 92%;
+  max-width: 420px;
+}
+
+.progress-bar {
+  width: 100%;
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+.progress {
+  height: 12px;
+  width: 0%;
+  background: #00ffcc;
+  transition: width 0.5s linear;
+}
+
+.reward {
+  font-size: 22px;
+  margin-top: 10px;
+}
+</style>
 </head>
+
 <body>
-    <h3>Earn 10 Points</h3>
-    <div id="player"></div>
-    <div id="status">Play the video to start timer...</div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyD6cAYeQYM9wRpEdmwdJy09NOgo6t7_pes", 
-            authDomain: "verify-53031.firebaseapp.com",
-            databaseURL: "https://verify-53031-default-rtdb.firebaseio.com",
-            projectId: "verify-53031"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        const userId = tg.initDataUnsafe?.user?.id;
+<div class="container">
+  <h2>🎥 Watch & Earn</h2>
+  <p>Watch 30 seconds to earn 10 points</p>
 
-        let player;
-        let timerStarted = false;
-        let secondsLeft = 30;
+  <!-- YouTube Player -->
+  <div id="player"></div>
 
-        var tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        var firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  <h3 id="timer">⏳ Waiting for video...</h3>
 
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-                height: '240', width: '100%',
-                videoId: 'YOUR_YT_VIDEO_ID', 
-                events: { 'onStateChange': (e) => {
-                    if (e.data == YT.PlayerState.PLAYING && !timerStarted) {
-                        timerStarted = true;
-                        startTimer();
-                    }
-                }}
-            });
-        }
+  <div class="progress-bar">
+    <div class="progress" id="progress"></div>
+  </div>
 
-        function startTimer() {
-            const timer = setInterval(() => {
-                secondsLeft--;
-                document.getElementById('status').innerText = "Wait: " + secondsLeft + "s";
-                if (secondsLeft <= 0) {
-                    clearInterval(timer);
-                    addPoints();
-                }
-            }, 1000);
-        }
+  <p id="status">Press play to start</p>
+  <div id="reward"></div>
+</div>
 
-        function addPoints() {
-            if (!userId) { alert("User ID missing"); return; }
-            const ref = database.ref('users/' + userId);
-            
-            ref.once('value').then(snap => {
-                let data = snap.val() || { balance: 0 };
-                return ref.update({ balance: (data.balance || 0) + 10 });
-            }).then(() => {
-                document.getElementById('status').innerText = "✅ Success! Closing...";
-                document.getElementById('status').style.color = "green";
-                setTimeout(() => tg.close(), 2000);
-            }).catch(err => {
-                document.getElementById('status').innerText = "Error: " + err.message;
-            });
-        }
-    </script>
+<!-- YouTube API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+// 🔹 Get UID from URL
+const params = new URLSearchParams(window.location.search);
+const uid = params.get("uid");
+
+const API = "https://server-verify-production-80b2.up.railway.app";
+
+let player;
+let seconds = 0;
+let timer = null;
+let rewarded = false;
+
+// Create player
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('player', {
+    height: '220',
+    width: '100%',
+    videoId: 'N0W_6SqVtfc',
+    events: {
+      'onStateChange': onPlayerStateChange
+    }
+  });
+}
+
+// Detect play/pause
+function onPlayerStateChange(event) {
+  if (event.data === YT.PlayerState.PLAYING && !rewarded) {
+    startTimer();
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    stopTimer();
+  }
+}
+
+// Start timer when video plays
+function startTimer() {
+  if (timer) return;
+
+  document.getElementById("status").innerText = "Watching...";
+  timer = setInterval(async () => {
+    seconds++;
+
+    document.getElementById("timer").innerText = "⏳ " + seconds + " / 30";
+    document.getElementById("progress").style.width = (seconds / 30 * 100) + "%";
+
+    if (seconds >= 30 && !rewarded) {
+      rewarded = true;
+      clearInterval(timer);
+
+      document.getElementById("status").innerText = "Adding points...";
+
+      try {
+        await fetch(`${API}/verify`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ uid: String(uid) })
+        });
+
+        document.getElementById("reward").innerHTML =
+          '<div class="reward">🎉 +10 Points</div>';
+
+        document.getElementById("status").innerText = "✅ Points added!";
+      } catch {
+        document.getElementById("status").innerText = "⚠️ Error adding points";
+      }
+    }
+  }, 1000);
+}
+
+// Stop timer if paused
+function stopTimer() {
+  clearInterval(timer);
+  timer = null;
+  document.getElementById("status").innerText = "Paused";
+}
+</script>
+
 </body>
 </html>
