@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Watch & Earn</title>
 
-<!-- Telegram WebApp -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
@@ -25,7 +24,6 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  transition: 0.3s;
 }
 
 .light {
@@ -41,19 +39,6 @@ body {
   width: 92%;
   max-width: 420px;
   backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-}
-
-button {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-.theme-btn {
-  background: #00ffcc;
 }
 
 .progress-bar {
@@ -69,17 +54,6 @@ button {
   width: 0%;
   background: #00ffcc;
   transition: width 1s linear;
-}
-
-.status {
-  margin-top: 12px;
-  font-size: 14px;
-}
-
-.timer {
-  font-size: 18px;
-  font-weight: bold;
-  margin-top: 10px;
 }
 
 .reward {
@@ -100,6 +74,10 @@ button {
 
 <div class="container">
   <h2>🎥 Watch & Earn</h2>
+
+  <!-- 💰 Balance display -->
+  <h3 id="balance">💰 Balance: Loading...</h3>
+
   <p>Watch for <b>30 seconds</b> to earn <b>10 points</b></p>
 
   <iframe width="100%" height="220"
@@ -107,72 +85,78 @@ button {
     frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
   </iframe>
 
-  <div class="timer" id="timer">⏳ 30</div>
+  <h3 id="timer">⏳ 30</h3>
 
   <div class="progress-bar">
     <div class="progress" id="progress"></div>
   </div>
 
-  <div class="status" id="status">Watching...</div>
+  <p id="status">Watching...</p>
 
-  <button class="theme-btn" onclick="toggleTheme()">Toggle Dark/Light</button>
+  <button onclick="toggleTheme()">Toggle Dark/Light</button>
 
   <div id="reward"></div>
 </div>
 
 <script>
-// ✅ Telegram WebApp Init
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// ✅ Get Telegram User ID
 const uid = tg.initDataUnsafe?.user?.id;
-
 if (!uid) {
-  document.getElementById("status").innerText =
-    "⚠️ Please open this inside Telegram.";
-  throw new Error("No Telegram UID");
+  document.getElementById("status").innerText = "Open inside Telegram";
+  throw new Error("No UID");
 }
 
-// 🔒 Anti-cheat (basic)
-if (localStorage.getItem("rewarded_" + uid)) {
-  document.getElementById("status").innerText =
-    "⚠️ Reward already claimed today.";
-  throw new Error("Already rewarded");
-}
+const API = "https://server-verify-production-80b2.up.railway.app";
 
 let seconds = 30;
+let rewarded = false;
+
 const progress = document.getElementById("progress");
-const status = document.getElementById("status");
 const timerText = document.getElementById("timer");
 const rewardBox = document.getElementById("reward");
 
-// ⏳ Countdown Timer
-const timer = setInterval(() => {
+// 🔄 Load balance
+async function loadBalance() {
+  const res = await fetch(`${API}/balance/${uid}`);
+  const data = await res.json();
+  document.getElementById("balance").innerText =
+    `💰 Balance: ${data.balance} pts`;
+}
+
+loadBalance();
+
+// ⏳ Countdown
+const timer = setInterval(async () => {
   seconds--;
   timerText.innerText = "⏳ " + seconds;
   progress.style.width = ((30 - seconds) / 30) * 100 + "%";
 
-  if (seconds <= 0) {
+  if (seconds <= 0 && !rewarded) {
+    rewarded = true;
     clearInterval(timer);
-    status.innerText = "✅ Verified!";
 
-    // 🎉 Reward animation
-    rewardBox.innerHTML = '<div class="reward">🎉 +10 Points</div>';
+    document.getElementById("status").innerText = "Adding points...";
 
-    // save local anti-cheat
-    localStorage.setItem("rewarded_" + uid, "true");
-
-    // 📡 Call API to add points
-    fetch("https://server-verify-production-80b2.up.railway.app/verify", {
+    // Call API
+    await fetch(`${API}/verify`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ uid: String(uid) })
     });
+
+    // 🎉 Animation
+    rewardBox.innerHTML = '<div class="reward">🎉 +10 Points</div>';
+
+    document.getElementById("status").innerText = "✅ Points added!";
+
+    // 🔄 Refresh balance
+    loadBalance();
   }
 }, 1000);
 
-// 🌗 Dark/Light Theme
+// 🌗 Theme toggle
 function toggleTheme() {
   document.body.classList.toggle("light");
 }
