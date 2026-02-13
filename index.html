@@ -1,44 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Watch & Earn</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-</head>
-<body style="text-align:center;font-family:Arial;">
 
-<h2>🎥 Watch & Earn</h2>
-<h3 id="balance">💰 Balance: Loading...</h3>
-
-<p>Watch 30 seconds to earn 10 points</p>
-
-<iframe width="100%" height="220"
-src="https://www.youtube.com/embed/N0W_6SqVtfc?autoplay=1"
-frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
-</iframe>
-
-<p id="status">⏳ Watching...</p>
-
-<script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-
-// Safe UID detection
-let uid = null;
-
-if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-  uid = tg.initDataUnsafe.user.id;
-} else {
-  document.getElementById("status").innerText =
-    "⚠️ Not opened inside Telegram.";
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
-// API URL
+.container {
+  background: rgba(255,255,255,0.1);
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  width: 92%;
+  max-width: 420px;
+}
+
+.progress-bar {
+  width: 100%;
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+.progress {
+  height: 12px;
+  width: 0%;
+  background: #00ffcc;
+  transition: width 1s linear;
+}
+
+.reward {
+  font-size: 22px;
+  margin-top: 10px;
+  animation: pop 0.6s ease forwards;
+}
+
+@keyframes pop {
+  0% { transform: scale(0); opacity: 0; }
+  80% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>🎥 Watch & Earn</h2>
+  <h3 id="balance">💰 Balance: Loading...</h3>
+
+  <p>Watch 30 seconds to earn 10 points</p>
+
+  <!-- YouTube video -->
+  <iframe id="video" width="100%" height="220"
+    src="https://www.youtube.com/embed/N0W_6SqVtfc?autoplay=1"
+    frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
+  </iframe>
+
+  <h3 id="timer">⏳ Waiting for video...</h3>
+
+  <div class="progress-bar">
+    <div class="progress" id="progress"></div>
+  </div>
+
+  <p id="status">Loading...</p>
+  <div id="reward"></div>
+</div>
+
+<script>
+// Get UID from URL
+const params = new URLSearchParams(window.location.search);
+const uid = params.get("uid");
+
 const API = "https://server-verify-production-80b2.up.railway.app";
+
+if (!uid) {
+  document.getElementById("status").innerText = "⚠️ Invalid user.";
+}
 
 // Load balance
 async function loadBalance() {
-  if (!uid) return;
   const res = await fetch(`${API}/balance/${uid}`);
   const data = await res.json();
   document.getElementById("balance").innerText =
@@ -47,26 +100,42 @@ async function loadBalance() {
 
 loadBalance();
 
-let seconds = 30;
+// Start timer when video loads
+const video = document.getElementById("video");
+video.onload = startTimer;
 
-const timer = setInterval(async () => {
-  seconds--;
-  document.getElementById("status").innerText =
-    "⏳ " + seconds + " seconds remaining";
+function startTimer() {
+  let seconds = 30;
+  const progress = document.getElementById("progress");
+  const timerText = document.getElementById("timer");
+  const rewardBox = document.getElementById("reward");
+  const status = document.getElementById("status");
 
-  if (seconds <= 0 && uid) {
-    clearInterval(timer);
+  status.innerText = "Watching...";
+  timerText.innerText = "⏳ 30";
 
-    await fetch(`${API}/verify`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ uid: String(uid) })
-    });
+  const timer = setInterval(async () => {
+    seconds--;
+    timerText.innerText = "⏳ " + seconds;
+    progress.style.width = ((30 - seconds) / 30) * 100 + "%";
 
-    document.getElementById("status").innerText = "✅ Points added!";
-    loadBalance();
-  }
-}, 1000);
+    if (seconds <= 0) {
+      clearInterval(timer);
+
+      status.innerText = "Adding points...";
+
+      await fetch(`${API}/verify`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ uid: String(uid) })
+      });
+
+      rewardBox.innerHTML = '<div class="reward">🎉 +10 Points</div>';
+      status.innerText = "✅ Points added!";
+      loadBalance();
+    }
+  }, 1000);
+}
 </script>
 
 </body>
